@@ -16,8 +16,7 @@ import java.util.Vector;
 /**
  * Created by fkirchge on 30.04.2017.
  */
-public class Main {
-
+public class WordCountExample {
 
     public static void main(String[] args) {
 
