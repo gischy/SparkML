@@ -32,6 +32,7 @@ import org.apache.spark.sql.SQLContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +46,14 @@ public class LogisticRegressionTrain1_2AndTest1_4_Sample100_500_1000 {
 
 	public static StringBuilder sb;
 
-	public static void main(String[] args) throws FileNotFoundException {
+	public static void main(String[] args) throws IOException {
+
+		// spark configuration
+		System.setProperty("hadoop.home.dir", Config.hadoopPath);
+		SparkConf conf = new SparkConf().setAppName("LogisticRegressionExample").setMaster("local[*]");
+		JavaSparkContext jsc = new JavaSparkContext(conf);
+		jsc.setLogLevel("ERROR");
+		SQLContext jsql = new SQLContext(jsc);
 
 		for (int sampleSize : sampleSizes) {
 
@@ -53,13 +61,6 @@ public class LogisticRegressionTrain1_2AndTest1_4_Sample100_500_1000 {
 
 			pointListTraining = new ArrayList<>();
 			pointListTest = new ArrayList<>();
-
-			// spark configuration
-			System.setProperty("hadoop.home.dir", Config.hadoopPath);
-			SparkConf conf = new SparkConf().setAppName("LogisticRegressionExample").setMaster("local[*]");
-			JavaSparkContext jsc = new JavaSparkContext(conf);
-			jsc.setLogLevel("ERROR");
-			SQLContext jsql = new SQLContext(jsc);
 
 			// load training data
 			Dataset<Row> trainingDataset = jsql.read().format("csv").option("inferSchema", "true").option("header", "true").option("sep", ";").load(Config.pathTrainingData1);
@@ -169,6 +170,10 @@ public class LogisticRegressionTrain1_2AndTest1_4_Sample100_500_1000 {
 
 			// write metrics
 			writeFile(LogisticRegressionTrain1_2AndTest1_4_Sample100_500_1000.class.getName()+"_iteration"+sampleSize, sb.toString());
+
+			// save model
+			model.write().overwrite().save(Config.outputPathModels + LogisticRegressionTrain1_2AndTest1_4_Sample100_500_1000.class.getName() + "_iteration" + sampleSize);
+
 		}
 	}
 
@@ -201,7 +206,7 @@ public class LogisticRegressionTrain1_2AndTest1_4_Sample100_500_1000 {
 	 * @throws FileNotFoundException
 	 */
 	private static void writeFile(String fileName, String payload) throws FileNotFoundException {
-		PrintWriter pw = new PrintWriter(new File(Config.outputPath + fileName));
+		PrintWriter pw = new PrintWriter(new File(Config.outputPathMetrics + fileName));
 		pw.write(payload);
 		pw.close();
 	}

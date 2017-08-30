@@ -12,8 +12,8 @@ public class Config {
 	public static String pathTrainingData3 = System.getProperty("user.dir")+"/training_data/training_musicbrainz1_4.csv";
 	public static String pathTrainingData4 = System.getProperty("user.dir")+"/training_data/training_musicbrainz1_5.csv";
 
-	public static String outputPath = System.getProperty("user.dir")+"/metriken/";
-	public static String outputPath2 = System.getProperty("user.dir")+"/models/";
+	public static String outputPathMetrics = System.getProperty("user.dir") + "/metriken/";
+	public static String outputPathModels = System.getProperty("user.dir") + "/models/";
 
 
 

@@ -47,19 +47,19 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 
 	public static void main(String[] args) throws IOException {
 
+		// spark configuration
+		System.setProperty("hadoop.home.dir", Config.hadoopPath);
+		SparkConf conf = new SparkConf().setAppName("LogisticRegressionExample").setMaster("local[*]");
+		JavaSparkContext jsc = new JavaSparkContext(conf);
+		jsc.setLogLevel("ERROR");
+		SQLContext jsql = new SQLContext(jsc);
+
 		for (int sampleSize : sampleSizes) {
 
 			sb = new StringBuilder();
 
 			pointListTraining = new ArrayList<>();
 			pointListTest = new ArrayList<>();
-
-			// spark configuration
-			System.setProperty("hadoop.home.dir", Config.hadoopPath);
-			SparkConf conf = new SparkConf().setAppName("LogisticRegressionExample").setMaster("local[2]");
-			JavaSparkContext jsc = new JavaSparkContext(conf);
-			jsc.setLogLevel("ERROR");
-			SQLContext jsql = new SQLContext(jsc);
 
 			// load training data
 			Dataset<Row> trainingDataset = jsql.read().format("csv").option("inferSchema", "true").option("header", "true").option("sep", ";").load(Config.pathTrainingData1);
@@ -179,11 +179,16 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 
 			BinaryLogisticRegressionSummary summary = new BinaryLogisticRegressionSummary(results, "probability", "label", "features");
 
-			jsc.stop();
-
 			// write metrics
 			writeFile(LogisticRegressionTrainAndTest1_2Sample100_500_1000.class.getName()+"_iteration"+sampleSize, sb.toString());
+
+			// save model
+			model.write().overwrite().save(Config.outputPathModels + LogisticRegressionTrainAndTest1_2Sample100_500_1000.class.getName() + "_iteration" + sampleSize);
+
 		}
+
+		jsc.stop();
+
 	}
 
 	/**
@@ -215,7 +220,7 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 	 * @throws FileNotFoundException
 	 */
 	private static void writeFile(String fileName, String payload) throws FileNotFoundException {
-		PrintWriter pw = new PrintWriter(new File(Config.outputPath + fileName));
+		PrintWriter pw = new PrintWriter(new File(Config.outputPathMetrics + fileName));
 		pw.write(payload);
 		pw.close();
 	}
