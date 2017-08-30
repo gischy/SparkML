@@ -165,8 +165,6 @@ public class LogisticRegressionTrain1_2AndTest1_3_Sample100_500_1000 {
 
 			BinaryLogisticRegressionSummary summary = new BinaryLogisticRegressionSummary(results, "probability", "label", "features");
 
-			jsc.stop();
-
 			// write metrics
 			writeFile(LogisticRegressionTrain1_2AndTest1_3_Sample100_500_1000.class.getName()+"_iteration"+sampleSize, sb.toString());
 
@@ -174,6 +172,9 @@ public class LogisticRegressionTrain1_2AndTest1_3_Sample100_500_1000 {
 			model.write().overwrite().save(Config.outputPathModels + LogisticRegressionTrain1_2AndTest1_3_Sample100_500_1000.class.getName() + "_iteration" + sampleSize);
 
 		}
+
+		jsc.stop();
+
 	}
 
 	/**
