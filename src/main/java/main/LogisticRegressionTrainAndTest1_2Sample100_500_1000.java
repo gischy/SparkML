@@ -17,7 +17,6 @@ package main;/*
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.ForeachFunction;
 import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary;
 import org.apache.spark.ml.classification.LogisticRegression;
 import org.apache.spark.ml.classification.LogisticRegressionModel;
@@ -32,6 +31,7 @@ import org.apache.spark.sql.SQLContext;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +45,7 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 
 	public static StringBuilder sb;
 
-	public static void main(String[] args) throws FileNotFoundException {
+	public static void main(String[] args) throws IOException {
 
 		for (int sampleSize : sampleSizes) {
 
@@ -54,24 +54,22 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 			pointListTraining = new ArrayList<>();
 			pointListTest = new ArrayList<>();
 
-			String utilsPath = "C:\\hadoop\\";
-			System.setProperty("hadoop.home.dir", utilsPath);
-
-			SparkConf conf = new SparkConf().setAppName("JavaSimpleParamsExample").setMaster("local[*]");
+			// spark configuration
+			System.setProperty("hadoop.home.dir", Config.hadoopPath);
+			SparkConf conf = new SparkConf().setAppName("LogisticRegressionExample").setMaster("local[2]");
 			JavaSparkContext jsc = new JavaSparkContext(conf);
 			jsc.setLogLevel("ERROR");
 			SQLContext jsql = new SQLContext(jsc);
 
 			// load training data
-			String pathTrain = "C:/Users/Kirchgeorg/Desktop/desktop/testrepos/sparkml/training_data/training_musicbrainz1_2.csv";
-			Dataset<Row> trainingDataset = jsql.read().format("csv").option("inferSchema", "true").option("header", "true").option("sep", ";").load(pathTrain);
+			Dataset<Row> trainingDataset = jsql.read().format("csv").option("inferSchema", "true").option("header", "true").option("sep", ";").load(Config.pathTrainingData1);
 
+			// filtering links
 			Dataset<Row> verifiedLinks = trainingDataset.filter("verified = true");
 			Dataset<Row> unVerifiedLinks = trainingDataset.filter("verified = false");
 
 			Row[] linksTrue = (Row[]) verifiedLinks.collect();
 			System.out.println("datensatz gesamtanzahl links true: " + linksTrue.length);
-
 
 			Row[] linksFalse = (Row[]) unVerifiedLinks.collect();
 			System.out.println("datensatz gesamtanzahl false links: " + linksFalse.length);
@@ -112,6 +110,8 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 			log("anzahl links false (test): " + labeledPointsFalseTest.size());
 
 			log("--> gesamtanzahl der eingelesen trainingsdaten: " + pointListTraining.size());
+
+			// create datasets for training
 			Dataset<Row> trainingData = jsql.createDataFrame(jsc.parallelize(pointListTraining), LabeledPoint.class);
 
 			pointListTest.addAll(labeledPointsTrueTest);
@@ -119,6 +119,7 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 
 			log("--> gesamtanzahl der eingelesen testdaten: " + pointListTest.size());
 
+			// create datasets for testing
 			Dataset<Row> testData = jsql.createDataFrame(jsc.parallelize(pointListTest), LabeledPoint.class);
 
 			// logistic regression instance (estimator)
@@ -148,9 +149,10 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 			Dataset<Row> results = model.transform(testData);
 			System.out.println("results.show()");
 			results.show();
-			Dataset<Row> testRows = results.select("features", "label", "probability", "prediction");
+			Dataset<Row> testRows = results.select("prediction", "label");
 
 			MulticlassMetrics multiclassMetrics = new MulticlassMetrics(testRows);
+
 			log("confusion matrix:");
 			log(multiclassMetrics.confusionMatrix().toString());
 
@@ -171,16 +173,6 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 			log("weighted true positive rate: " + multiclassMetrics.weightedTruePositiveRate());
 			log("weighted false positive rate: " + multiclassMetrics.weightedFalsePositiveRate());
 
-			testRows.foreach((ForeachFunction<Row>) r -> {
-				DenseVector vector = (DenseVector) r.get(0);
-				double simTitel = vector.apply(0);
-				double simArtist = vector.apply(1);
-				double simAlbum = vector.apply(2);
-
-				double sim = simTitel * coefficientTitel + simArtist * coefficientArtist + simAlbum * coefficientAlbum;
-
-			});
-
 			BinaryClassificationMetrics binaryClassificationMetrics = new BinaryClassificationMetrics(testRows);
 			log("precision-recall-curve: " +binaryClassificationMetrics.pr().toJavaRDD().collect());
 			log("roc-curve: " +binaryClassificationMetrics.roc().toJavaRDD().collect());
@@ -189,10 +181,16 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 
 			jsc.stop();
 
+			// write metrics
 			writeFile(LogisticRegressionTrainAndTest1_2Sample100_500_1000.class.getName()+"_iteration"+sampleSize, sb.toString());
 		}
 	}
 
+	/**
+	 * Creates a @{@link LabeledPoint} object from a row of our datasets.
+	 * @param row row containing the linked attribute and 3 similarity vectors
+	 * @return @{@link LabeledPoint}
+	 */
 	private static LabeledPoint createLabeledPoint(Row row) {
 		boolean labelBoolean = row.getBoolean(2);
 		double label = labelBoolean == true ? 1.0 : 0.0;
@@ -200,14 +198,24 @@ public class LogisticRegressionTrainAndTest1_2Sample100_500_1000 {
 		return new LabeledPoint(label, features);
 	}
 
+	/**
+	 * Outputs and logs necessary information.
+	 * @param log line which should be appended to the log
+	 */
 	private static void log(String log) {
 		System.out.println(log);
 		sb.append(log);
 		sb.append("\n");
 	}
 
+	/**
+	 * Writes a file with a given filename and payload to the output directory.
+	 * @param fileName file name
+	 * @param payload content of the file
+	 * @throws FileNotFoundException
+	 */
 	private static void writeFile(String fileName, String payload) throws FileNotFoundException {
-		PrintWriter pw = new PrintWriter(new File(fileName));
+		PrintWriter pw = new PrintWriter(new File(Config.outputPath + fileName));
 		pw.write(payload);
 		pw.close();
 	}

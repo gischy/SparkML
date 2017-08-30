@@ -54,18 +54,17 @@ public class LogisticRegressionTrain1_2AndTest1_3_Sample100_500_1000 {
 			pointListTraining = new ArrayList<>();
 			pointListTest = new ArrayList<>();
 
-			String utilsPath = "C:\\hadoop\\";
-			System.setProperty("hadoop.home.dir", utilsPath);
-
-			SparkConf conf = new SparkConf().setAppName("JavaSimpleParamsExample").setMaster("local[*]");
+			// spark configuration
+			System.setProperty("hadoop.home.dir", Config.hadoopPath);
+			SparkConf conf = new SparkConf().setAppName("LogisticRegressionExample").setMaster("local[*]");
 			JavaSparkContext jsc = new JavaSparkContext(conf);
 			jsc.setLogLevel("ERROR");
 			SQLContext jsql = new SQLContext(jsc);
 
 			// load training data
-			String pathTrain = "C:/Users/Kirchgeorg/Desktop/desktop/testrepos/sparkml/training_data/training_musicbrainz1_2.csv";
-			Dataset<Row> trainingDataset = jsql.read().format("csv").option("inferSchema", "true").option("header", "true").option("sep", ";").load(pathTrain);
+			Dataset<Row> trainingDataset = jsql.read().format("csv").option("inferSchema", "true").option("header", "true").option("sep", ";").load(Config.pathTrainingData1);
 
+			// filtering links
 			Dataset<Row> verifiedLinks = trainingDataset.filter("verified = true");
 			Dataset<Row> unVerifiedLinks = trainingDataset.filter("verified = false");
 
@@ -100,8 +99,7 @@ public class LogisticRegressionTrain1_2AndTest1_3_Sample100_500_1000 {
 			Dataset<Row> trainingData = jsql.createDataFrame(jsc.parallelize(pointListTraining), LabeledPoint.class);
 
 			// load test data
-			String path2 = "C:/Users/Kirchgeorg/Desktop/desktop/testrepos/sparkml/training_data/training_musicbrainz1_3.csv";
-			Dataset<Row> testDataset = jsql.read().format("csv").option("inferSchema", "true").option("header", "true").option("sep", ";").load(path2);
+			Dataset<Row> testDataset = jsql.read().format("csv").option("inferSchema", "true").option("header", "true").option("sep", ";").load(Config.pathTrainingData2);
 
 			testDataset.foreach((ForeachFunction<Row>) row -> {
 				pointListTest.add(createLabeledPoint(row));
@@ -168,10 +166,16 @@ public class LogisticRegressionTrain1_2AndTest1_3_Sample100_500_1000 {
 
 			jsc.stop();
 
+			// write metrics
 			writeFile(LogisticRegressionTrain1_2AndTest1_3_Sample100_500_1000.class.getName()+"_iteration"+sampleSize, sb.toString());
 		}
 	}
 
+	/**
+	 * Creates a @{@link LabeledPoint} object from a row of our datasets.
+	 * @param row row containing the linked attribute and 3 similarity vectors
+	 * @return @{@link LabeledPoint}
+	 */
 	private static LabeledPoint createLabeledPoint(Row row) {
 		boolean labelBoolean = row.getBoolean(2);
 		double label = labelBoolean == true ? 1.0 : 0.0;
@@ -179,14 +183,24 @@ public class LogisticRegressionTrain1_2AndTest1_3_Sample100_500_1000 {
 		return new LabeledPoint(label, features);
 	}
 
+	/**
+	 * Outputs and logs necessary information.
+	 * @param log line which should be appended to the log
+	 */
 	private static void log(String log) {
 		System.out.println(log);
 		sb.append(log);
 		sb.append("\n");
 	}
 
+	/**
+	 * Writes a file with a given filename and payload to the output directory.
+	 * @param fileName file name
+	 * @param payload content of the file
+	 * @throws FileNotFoundException
+	 */
 	private static void writeFile(String fileName, String payload) throws FileNotFoundException {
-		PrintWriter pw = new PrintWriter(new File(fileName));
+		PrintWriter pw = new PrintWriter(new File(Config.outputPath + fileName));
 		pw.write(payload);
 		pw.close();
 	}
