@@ -16,7 +16,8 @@ The implementation using the spark java api can be found inside "src/java" and a
 - The JAR file can be executed using the command "java -jar target/sparkml-1.0.jar"
 - The application can also be started by running the class RunAll.java from the IDE
 - Training data is located inside the "training_data" directory
-- Metrics for each iteration with a different sample size will be stored inside "metriken" directory
+- Metrics for each iteration with a different sample size will be stored inside the "metriken" directory
+- Models for each iteration with a different sample size will be stored inside the "models" directory
 
 ## Results
 
